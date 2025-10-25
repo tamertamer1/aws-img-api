@@ -1,34 +1,34 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Serverless Image Recognition API (free-tier)
-
 Parameters:
   BucketName:
     Type: String
     Default: img-upload-demo
-
 Resources:
   UploadBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Ref BucketName
+      BucketName:
+        Ref: BucketName
       NotificationConfiguration:
         LambdaConfigurations:
-          - Event: s3:ObjectCreated:Put
-            Function: !GetAtt ClassifyFunction.Arn
-
+        - Event: s3:ObjectCreated:Put
+          Function:
+            Fn::GetAtt:
+            - ClassifyFunction
+            - Arn
   ResultsTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName: ImageResults
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: image_key
-          AttributeType: S
+      - AttributeName: image_key
+        AttributeType: S
       KeySchema:
-        - AttributeName: image_key
-          KeyType: HASH
-
+      - AttributeName: image_key
+        KeyType: HASH
   ClassifyFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -37,27 +37,27 @@ Resources:
       Timeout: 30
       MemorySize: 1024
       Policies:
-        - S3ReadPolicy:
-            BucketName: !Ref BucketName
-        - DynamoDBCrudPolicy:
-            TableName: ImageResults
+      - S3ReadPolicy:
+          BucketName:
+            Ref: BucketName
+      - DynamoDBCrudPolicy:
+          TableName: ImageResults
       Events:
         S3Put:
           Type: S3
           Properties:
-            Bucket: !Ref UploadBucket
+            Bucket:
+              Ref: UploadBucket
             Events: s3:ObjectCreated:Put
-
   Api:
     Type: AWS::Serverless::Api
     Properties:
       StageName: v1
       DefinitionBody:
-        'Fn::Transform':
+        Fn::Transform:
           Name: AWS::Include
           Parameters:
-            Location: openapi.yaml
-
+            Location: ../../openapi.yaml
   GetResultFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -65,8 +65,8 @@ Resources:
       Runtime: python3.11
       Timeout: 10
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: ImageResults
+      - DynamoDBReadPolicy:
+          TableName: ImageResults
       Environment:
         Variables:
           TABLE_NAME: ImageResults
@@ -74,11 +74,14 @@ Resources:
         ApiGet:
           Type: Api
           Properties:
-            RestApiId: !Ref Api
+            RestApiId:
+              Ref: Api
             Path: /results/{image_key}
             Method: GET
-
+      CodeUri: GetResultFunction
+    Metadata:
+      SamResourceId: GetResultFunction
 Outputs:
   ApiBaseUrl:
-    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/v1"
-
+    Value:
+      Fn::Sub: https://${Api}.execute-api.${AWS::Region}.amazonaws.com/v1
